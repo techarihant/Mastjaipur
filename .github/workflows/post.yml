@@ -1,0 +1,35 @@
+name: MastJaipur Daily Post
+on:
+  schedule:
+    # 4:40 PM UTC is 10:10 PM IST
+    - cron: '40 16 * * *' 
+  workflow_dispatch: # Allows you to run it manually for testing
+
+jobs:
+  build-and-post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests pillow google-generativeai
+
+      - name: Run Script to generate image
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+        run: python main.py
+
+      - name: Commit and push image to GitHub Pages
+        uses: devops-infra/action-commit-push@v1.1.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          commit_message: "Auto-update Jaipur news post"
+          add_timestamp: true
