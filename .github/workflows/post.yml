@@ -21,7 +21,7 @@ jobs:
       - name: Generate Image
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
-        run: python main.py # Image is created here
+        run: python main.py 
       - name: Push to Website
         run: |
           git config --global user.name "github-actions[bot]"
@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for GitHub Pages
-        run: sleep 300 # Wait 5 minutes to ensure URL is live
+        run: sleep 300 
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup Python
@@ -44,10 +44,11 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install
-        run: pip install google-genai requests
+        # FIXED: Added pillow here so the second job can also run main.py
+        run: pip install google-genai requests pillow 
       - name: Post to Instagram
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
-        run: python main.py # Runs again to trigger the post now that the URL is live
+        run: python main.py
