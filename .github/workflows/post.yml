@@ -1,5 +1,7 @@
 name: MastJaipur Daily Post
 on:
+  schedule:
+    - cron: '30 1 * * *' # 7:00 AM IST
   workflow_dispatch: 
 
 jobs:
@@ -18,22 +20,31 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install
+      - name: Install Dependencies
         run: pip install google-genai requests pillow
 
-      - name: Run
+      - name: Generate News & Update Website
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
         run: python main.py
 
-      - name: Deploy
+      - name: Force Push to gh-pages
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B gh-pages
-          # Add files even if the AI step failed but image was made
-          git add -f final_post.jpg index.html .nojekyll || echo "File not found"
-          git commit -m "Update" || echo "No changes"
+          git add -f final_post.jpg index.html .nojekyll
+          git commit -m "Morning News Update"
           git push origin gh-pages --force
+
+      - name: Wait for GitHub Pages to Deploy
+        run: sleep 180 # Wait 3 minutes for the URL to become live
+
+      - name: Trigger Instagram Post
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+        run: python main.py # Runs again to send the now-live URL to Instagram
