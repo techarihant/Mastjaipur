@@ -28,12 +28,11 @@ jobs:
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
         run: python main.py
 
-      # This is the critical step to move the image to the branch
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: . # This tells it to look in the current folder
+          publish_dir: .
           publish_branch: gh-pages
-          # This ensures it ONLY keeps the image and essential files
-          exclude_assets: '.github,main.py,template.png,*.ttf'
+          # This ensures we keep index.html and other files while adding final_post.jpg
+          keep_files: true
