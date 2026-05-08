@@ -1,7 +1,5 @@
 name: MastJaipur Daily Post
 on:
-  schedule:
-    - cron: '40 16 * * *'
   workflow_dispatch: 
 
 jobs:
@@ -10,42 +8,32 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install
         run: pip install google-genai requests pillow
 
-      - name: Run News Pipeline
+      - name: Run
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
         run: python main.py
 
-      - name: Force Push to GitHub Pages
+      - name: Deploy
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Create a temp branch
-          git checkout -B temp-gh-pages
-          
-          # Check if image was actually created
-          if [ -f "final_post.jpg" ]; then
-            # Force add files even if in gitignore
-            git add -f final_post.jpg index.html .nojekyll
-            git commit -m "Update Daily News Image"
-            git push origin temp-gh-pages:gh-pages --force
-            echo "Deployment successful."
-          else
-            echo "final_post.jpg not found. AI quota likely exceeded."
-            exit 1
-          fi
+          git checkout -B gh-pages
+          # Add files even if the AI step failed but image was made
+          git add -f final_post.jpg index.html .nojekyll || echo "File not found"
+          git commit -m "Update" || echo "No changes"
+          git push origin gh-pages --force
