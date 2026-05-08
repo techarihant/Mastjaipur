@@ -23,28 +23,19 @@ jobs:
       - name: Install Dependencies
         run: pip install google-genai requests pillow
 
-      - name: Generate News & Update Website
+      - name: Run Python Script
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
         run: python main.py
 
-      - name: Force Push to gh-pages
+      - name: Deploy to GitHub Pages
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B gh-pages
-          git add -f final_post.jpg index.html .nojekyll
-          git commit -m "Morning News Update"
+          # The -f forces it, and || true prevents the crash if the file is missing
+          git add -f final_post.jpg index.html .nojekyll || true
+          git commit -m "Morning News Update" || echo "No changes to commit"
           git push origin gh-pages --force
-
-      - name: Wait for GitHub Pages to Deploy
-        run: sleep 180 # Wait 3 minutes for the URL to become live
-
-      - name: Trigger Instagram Post
-        env:
-          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
-          IG_USER_ID: ${{ secrets.IG_USER_ID }}
-          IG_TOKEN: ${{ secrets.IG_TOKEN }}
-        run: python main.py # Runs again to send the now-live URL to Instagram
