@@ -10,16 +10,20 @@ IG_USER_ID = os.getenv("IG_USER_ID")
 IG_TOKEN = os.getenv("IG_TOKEN")
 IMAGE_URL = "https://techarihant.github.io/Mastjaipur/final_post.jpg"
 
+# Initialize Client
 client = genai.Client(api_key=GEMINI_KEY)
 
 def get_ai_content():
     """Fetches text with a fallback to ensure the script never fails empty."""
+    # Using 'gemini-1.5-flash' without the 'models/' prefix to avoid 404
+    model_id = "gemini-1.5-flash"
+    
     prompt = (
         "PART 1 (For Image): Line 1: 4-word headline. Line 2: 1-line Hinglish summary. "
         "PART 2 (For Meta Caption): Write an SEO optimized caption with 8-12 hashtags."
     )
     
-    # Default safety content if API fails
+    # Static Fallback News (in case of API error)
     default_content = (
         "PART 1\nJAIPUR CITY DAILY UPDATES\nPink City ki sabse tez khabrein yahan dekhiye!\n"
         "PART 2\n[SEO OPTIMIZATION]\nJaipur news updates today: Pink City ki latest khabrein yahan dekhiye!\n"
@@ -27,53 +31,83 @@ def get_ai_content():
     )
 
     try:
-        response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt)
-        return response.text.strip() if response.text else default_content
+        # Fixed: Directly passing model string
+        response = client.models.generate_content(model=model_id, contents=prompt)
+        if response and response.text:
+            return response.text.strip()
+        return default_content
     except Exception as e:
-        print(f"AI Error (using fallback): {e}")
+        print(f"AI Error: {e}. Using fallback news.")
         return default_content
 
 def create_image(image_text_block):
-    """Guarantees the creation of final_post.jpg."""
+    """Guarantees the creation of final_post.jpg with visible news text."""
     try:
-        lines = [line for line in image_text_block.split('\n') if line.strip()]
-        # Extracting safety-cleaned text
-        headline = "".join(e for e in lines[0] if e.isalnum() or e.isspace()).replace("PART 1", "").strip()[:30]
-        summary = "".join(e for e in lines[1] if e.isalnum() or e.isspace() or e in '.,!?').strip()[:100]
+        # Clean up the AI response to find the news lines
+        lines = [l.strip() for l in image_text_block.split('\n') if l.strip()]
+        
+        # Logic to skip "PART 1" header if present
+        headline_raw = lines[1] if "PART 1" in lines[0] else lines[0]
+        summary_raw = lines[2] if "PART 1" in lines[0] else lines[1]
+
+        headline = "".join(e for e in headline_raw if e.isalnum() or e.isspace()).strip()[:30]
+        summary = "".join(e for e in summary_raw if e.isalnum() or e.isspace() or e in '.,!?').strip()[:100]
 
         img = Image.open("template.png").convert("RGB")
         draw = ImageDraw.Draw(img)
         
+        # Load fonts - Ensure these are in your repo!
         try:
             font_h = ImageFont.truetype("Montserrat-Bold.ttf", 80)
             font_s = ImageFont.truetype("Montserrat-Medium.ttf", 45)
         except:
+            print("Fonts not found, using default.")
             font_h = ImageFont.load_default()
             font_s = ImageFont.load_default()
             
-        # Draw high-contrast text
+        # Draw text onto image
         draw.text((60, 450), headline.upper(), font=font_h, fill="#212121")
         draw.text((60, 560), textwrap.fill(summary, width=35), font=font_s, fill="#424242")
         
         img.save("final_post.jpg", "JPEG", quality=95)
-        print("File verified: final_post.jpg created.")
+        print(f"Verified: Image created with headline: {headline}")
         return True
     except Exception as e:
         print(f"Design Error: {e}")
         return False
 
 def publish_to_instagram(caption):
+    """Handles the two-step Instagram Graph API process."""
     if not caption: return
-    post_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media"
-    payload = {'image_url': IMAGE_URL, 'caption': caption, 'access_token': IG_TOKEN}
-    r = requests.post(post_url, data=payload).json()
-    print(f"Instagram Response: {r}")
+    
+    try:
+        # Step 1: Create Container
+        post_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media"
+        payload = {'image_url': IMAGE_URL, 'caption': caption, 'access_token': IG_TOKEN}
+        r = requests.post(post_url, data=payload).json()
+        
+        if 'id' in r:
+            creation_id = r['id']
+            # Step 2: Publish
+            publish_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media_publish"
+            requests.post(publish_url, data={'creation_id': creation_id, 'access_token': IG_TOKEN})
+            print("Successfully posted to Instagram!")
+        else:
+            print(f"Instagram Error: {r}")
+    except Exception as e:
+        print(f"Network Error: {e}")
 
 if __name__ == "__main__":
     full_content = get_ai_content()
-    parts = full_content.split("PART 2")
-    img_text = parts[0]
-    social_cap = parts[1] if len(parts) > 1 else img_text
     
+    # Split content for Image vs Caption
+    if "PART 2" in full_content:
+        parts = full_content.split("PART 2")
+        img_text = parts[0]
+        social_cap = parts[1].strip()
+    else:
+        img_text = full_content
+        social_cap = full_content
+
     if create_image(img_text):
         publish_to_instagram(social_cap)
