@@ -3,82 +3,86 @@ import requests
 from PIL import Image, ImageDraw, ImageFont
 from google import genai
 
-# Configuration from GitHub Secrets
+# 1. Load Environment Variables from GitHub Secrets
 GEMINI_KEY = os.getenv("GEMINI_KEY")
 IG_USER_ID = os.getenv("IG_USER_ID")
 IG_TOKEN = os.getenv("IG_TOKEN")
 
-# Replace with your actual GitHub Pages URL
-IMAGE_URL = "https://techarihant.github.io/Mastjaipur/final_post.jpg"
+# Update your GitHub details here
+GITHUB_USERNAME = "techarihant"
+REPO_NAME = "Mastjaipur"
+IMAGE_URL = f"https://{GITHUB_USERNAME}.github.io/{REPO_NAME}/final_post.jpg"
 
-# Initialize the new Gemini 3 Client
+# Initialize the Google GenAI Client
 client = genai.Client(api_key=GEMINI_KEY)
 
 def get_news_and_design():
-    # 1. Fetch and Summarize News
+    # news_url can be updated to any Jaipur news source
     news_url = "https://timesofindia.indiatimes.com/city/jaipur" 
     
     prompt = (
         f"Summarize this Jaipur news for a social media post: {news_url}. "
         "Give me exactly two lines: "
-        "Line 1: A 4-word bold headline. "
-        "Line 2: A 2-line Hinglish summary."
+        "Line 1: A 4-word bold headline in English. "
+        "Line 2: A 2-line summary in Hinglish."
     )
 
-    response = client.models.generate_content(
-        model="gemini-3-flash",
-        contents=prompt
-    )
-    
-    # Split the response text
-    content = response.text.strip().split('\n')
-    headline = content[0] if len(content) > 0 else "JAIPUR NEWS UPDATE"
-    summary = content[1] if len(content) > 1 else "Stay updated with MastJaipur for latest news."
+    try:
+        # Using gemini-2.0-flash to avoid 404 versioning errors
+        response = client.models.generate_content(
+            model="gemini-2.0-flash", 
+            contents=prompt
+        )
+        
+        text_output = response.text.strip().split('\n')
+        headline = text_output[0]
+        summary = text_output[1] if len(text_output) > 1 else ""
+    except Exception as e:
+        print(f"AI Generation Error: {e}")
+        return None
 
-    # 2. Draw on Template
+    # Design Image
     try:
         img = Image.open("template.png")
         draw = ImageDraw.Draw(img)
         
-        # Ensure these .ttf files are in your repo root
+        # Ensure these .ttf files are in your repository root
         font_h = ImageFont.truetype("Montserrat-Bold.ttf", 70)
         font_s = ImageFont.truetype("Montserrat-Medium.ttf", 40)
         
-        # Draw Headline and Summary
+        # Draw text onto the template
         draw.text((60, 400), headline.upper(), font=font_h, fill="white")
         draw.text((60, 520), summary, font=font_s, fill="white")
         
         img.save("final_post.jpg", "JPEG", quality=95)
-        print("Graphic Created successfully.")
-        return f"{headline}\n\n{summary} #Jaipur #MastJaipur #PinkCity"
+        print("Image saved successfully.")
+        return f"{headline}\n\n{summary}\n\n#Jaipur #MastJaipur #PinkCity"
     except Exception as e:
-        print(f"Design Error: {e}")
+        print(f"Drawing Error: {e}")
         return None
 
 def publish_to_instagram(caption):
     if not caption:
         return
 
-    # Step A: Create Media Container
+    # Create the media container on Instagram
     post_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media"
     payload = {
         'image_url': IMAGE_URL,
         'caption': caption,
         'access_token': IG_TOKEN
     }
-    r = requests.post(post_url, data=payload)
-    result = r.json()
+    r = requests.post(post_url, data=payload).json()
     
-    if 'id' in result:
-        creation_id = result['id']
-        # Step B: Publish the Container
+    if 'id' in r:
+        creation_id = r['id']
+        # Publish the container to the live feed
         publish_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media_publish"
         requests.post(publish_url, data={'creation_id': creation_id, 'access_token': IG_TOKEN})
         print("Successfully posted to Instagram!")
     else:
-        print(f"Instagram API Error: {result}")
+        print(f"Instagram Error: {r}")
 
 if __name__ == "__main__":
     caption_text = get_news_and_design()
-    # Note: On first run, ignore Instagram error until GitHub Pages updates the URL
     publish_to_instagram(caption_text)
