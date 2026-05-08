@@ -1,35 +1,39 @@
 name: MastJaipur Daily Post
 on:
   schedule:
-    # 4:40 PM UTC is 10:10 PM IST
-    - cron: '40 16 * * *' 
-  workflow_dispatch: # Allows you to run it manually for testing
+    # 10:10 PM IST is 4:40 PM UTC (16:40)
+    - cron: '40 16 * * *'
+  workflow_dispatch: 
 
 jobs:
   build-and-post:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to push image to repo
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests pillow google-generativeai
+        run: |
+          pip install google-genai requests pillow
 
-      - name: Run Script to generate image
+      - name: Run News Script
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
         run: python main.py
 
-      - name: Commit and push image to GitHub Pages
-        uses: devops-infra/action-commit-push@v1.1.0
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          commit_message: "Auto-update Jaipur news post"
-          add_timestamp: true
+          publish_dir: .
+          publish_branch: gh-pages
+          keep_files: true
