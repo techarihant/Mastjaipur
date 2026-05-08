@@ -35,7 +35,7 @@ jobs:
     needs: build-and-deploy
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for GitHub Pages
+      - name: Wait for Deployment (5 min)
         run: sleep 300 
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,8 +44,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install
-        # FIXED: Added pillow here so the second job can also run main.py
-        run: pip install google-genai requests pillow 
+        run: pip install google-genai requests pillow
       - name: Post to Instagram
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}

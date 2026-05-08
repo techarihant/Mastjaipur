@@ -4,26 +4,22 @@ import textwrap
 from PIL import Image, ImageDraw, ImageFont
 from google import genai
 
-# 1. Configuration
+# Configuration
 GEMINI_KEY = os.getenv("GEMINI_KEY")
 IG_USER_ID = os.getenv("IG_USER_ID")
 IG_TOKEN = os.getenv("IG_TOKEN")
-# Make sure this URL matches your GitHub username and repo name exactly
 IMAGE_URL = "https://techarihant.github.io/Mastjaipur/final_post.jpg"
 
-# Initialize Client
 client = genai.Client(api_key=GEMINI_KEY)
 
 def get_ai_content():
-    """Fetches text with a fallback to ensure the script never fails empty."""
-    # SDK FIX: Use just the model name. The SDK handles the prefix.
+    """Fetches text with a fallback to ensure the script never fails."""
+    # FIXED: The SDK expects the model name exactly like this
     model_id = "gemini-1.5-flash"
     
     prompt = (
-        "Analyze latest Jaipur news. Provide response in two parts:\n"
-        "PART 1 (For Image): Line 1: 4-word headline. Line 2: 1-line Hinglish summary.\n"
-        "PART 2 (For Meta Caption): Write an SEO optimized caption with 8-12 hashtags "
-        "and a final bracketed keyword list."
+        "PART 1 (For Image): Line 1: 4-word headline. Line 2: 1-line Hinglish summary. "
+        "PART 2 (For Meta Caption): Write an SEO optimized caption with 8-12 hashtags."
     )
     
     default_content = (
@@ -33,6 +29,7 @@ def get_ai_content():
     )
 
     try:
+        # Fixed model call for the genai SDK
         response = client.models.generate_content(model=model_id, contents=prompt)
         if response and response.text:
             return response.text.strip()
@@ -46,7 +43,7 @@ def create_image(image_text_block):
     try:
         lines = [l.strip() for l in image_text_block.split('\n') if l.strip()]
         
-        # Robust parsing to skip labels
+        # Robust parsing
         headline_raw = "JAIPUR CITY UPDATES"
         summary_raw = "Pink City news and updates."
         
@@ -68,7 +65,6 @@ def create_image(image_text_block):
             font_h = ImageFont.load_default()
             font_s = ImageFont.load_default()
             
-        # Draw high-contrast text
         draw.text((60, 450), headline.upper(), font=font_h, fill="#212121")
         draw.text((60, 560), textwrap.fill(summary, width=35), font=font_s, fill="#424242")
         
@@ -80,13 +76,9 @@ def create_image(image_text_block):
         return False
 
 def publish_to_instagram(caption):
-    """Handles the two-step Instagram Graph API process."""
+    """Handles the Instagram Graph API process."""
     if not caption: return
     
-    # Meta Ads Style Caption Label
-    if "[SEO OPTIMIZATION]" not in caption:
-        caption = f"[SEO OPTIMIZATION]\n{caption}"
-
     try:
         # Step 1: Create Media Container
         post_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media"
