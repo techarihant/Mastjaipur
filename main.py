@@ -13,7 +13,8 @@ IG_TOKEN = os.getenv("IG_TOKEN")
 IMAGE_URL = "https://techarihant.github.io/Mastjaipur/final_post.jpg"
 
 genai.configure(api_key=GEMINI_KEY)
-ai_model = genai.GenerativeModel('gemini-1.5-flash')
+# Using the most reliable model string for the current API
+ai_model = genai.GenerativeModel('gemini-pro')
 
 def get_news_and_design():
     # 1. AI reads news (Replace with your actual Jaipur news link)
