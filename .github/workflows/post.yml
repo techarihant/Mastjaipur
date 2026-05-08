@@ -5,37 +5,49 @@ on:
   workflow_dispatch: 
 
 jobs:
-  build-and-post:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install Dependencies
+      - name: Install
         run: pip install google-genai requests pillow
-
-      - name: Run Python Script
+      - name: Generate Image
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
-          IG_USER_ID: ${{ secrets.IG_USER_ID }}
-          IG_TOKEN: ${{ secrets.IG_TOKEN }}
-        run: python main.py
-
-      - name: Deploy to GitHub Pages
+        run: python main.py # Image is created here
+      - name: Push to Website
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B gh-pages
-          # The -f forces it, and || true prevents the crash if the file is missing
           git add -f final_post.jpg index.html .nojekyll || true
-          git commit -m "Morning News Update" || echo "No changes to commit"
+          git commit -m "Update Morning Image" || echo "No changes"
           git push origin gh-pages --force
+
+  post-to-insta:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for GitHub Pages
+        run: sleep 300 # Wait 5 minutes to ensure URL is live
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: pip install google-genai requests
+      - name: Post to Instagram
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+        run: python main.py # Runs again to trigger the post now that the URL is live
