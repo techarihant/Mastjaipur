@@ -28,11 +28,13 @@ jobs:
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
         run: python main.py
 
+      # This step forces GitHub to recognize the newly created image
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .
           publish_branch: gh-pages
-          # This ensures we keep index.html and other files while adding final_post.jpg
+          # We explicitly tell the action NOT to ignore the jpg
+          exclude_assets: '.github' 
           keep_files: true
