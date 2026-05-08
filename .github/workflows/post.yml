@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,13 +30,19 @@ jobs:
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
         run: python main.py
 
-      # This step forces GitHub to recognize the newly created image
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
-          publish_branch: gh-pages
-          # We explicitly tell the action NOT to ignore the jpg
-          exclude_assets: '.github' 
-          keep_files: true
+      - name: Force Push Image to gh-pages
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Switch to a temporary branch to prepare the update
+          git checkout -B temp-gh-pages
+          
+          # Add ONLY the files needed for the website
+          git add -f final_post.jpg index.html .nojekyll
+          
+          # Commit the changes
+          git commit -m "Automated update: Added final_post.jpg"
+          
+          # Force push the local temp branch to the remote gh-pages branch
+          git push origin temp-gh-pages:gh-pages --force
