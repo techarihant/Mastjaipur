@@ -1,10 +1,10 @@
 import os
 import requests
-import time
-from PIL import Image, ImageDraw, ImageFont
+import textwrap
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from google import genai
 
-# Configuration
+# 1. Configuration
 GEMINI_KEY = os.getenv("GEMINI_KEY")
 IG_USER_ID = os.getenv("IG_USER_ID")
 IG_TOKEN = os.getenv("IG_TOKEN")
@@ -12,62 +12,95 @@ IMAGE_URL = "https://techarihant.github.io/Mastjaipur/final_post.jpg"
 
 client = genai.Client(api_key=GEMINI_KEY)
 
-def get_news_and_design():
-    prompt = "Give me one major Jaipur news headline (4 words) and a 1-line summary in Hinglish."
-    headline, summary = "JAIPUR CITY UPDATES", "Pink City ki latest khabrein yahan dekhiye!"
+def get_ai_content():
+    """Fetches both the image text and the SEO-optimized Meta caption."""
+    # Strict prompt for the image text and the social media caption
+    prompt = (
+        "Analyze the latest Jaipur news from TOI Jaipur. "
+        "Provide the response in two parts:\n"
+        "PART 1 (For Image): Line 1: 4-word headline. Line 2: 1-line Hinglish summary.\n"
+        "PART 2 (For Meta Caption): Write a scroll-stopping caption following these rules: "
+        "Line 1: Keyword-rich opening. Line 2-3: Value prop. Line 4: Urgency. Line 5: CTA. "
+        "Include 8-12 hashtags and a final bracketed keyword list."
+    )
 
     try:
-        # Using 1.5-flash for quota stability
         response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt)
-        if response.text:
-            lines = response.text.strip().split('\n')
-            headline = lines[0].replace('*', '').strip()[:30]
-            summary = lines[-1].replace('*', '').strip()[:100]
+        if not response.text:
+            raise ValueError("Empty AI response")
+        return response.text.strip()
     except Exception as e:
-        print(f"AI Quota hit, using Safety Mode defaults: {e}")
+        print(f"AI Error: {e}")
+        return None
 
+def create_image(image_text_block):
+    """Renders high-contrast text onto the vibrant template."""
     try:
-        img = Image.open("template.png").convert("RGB")
-        draw = ImageDraw.Draw(img)
+        # Split AI response to get image text (Part 1)
+        lines = image_text_block.split('\n')
+        headline = "".join(e for e in lines[0] if e.isalnum() or e.isspace()).strip()[:30]
+        summary = "".join(e for e in lines[1] if e.isalnum() or e.isspace() or e in '.,!?').strip()[:100]
+
+        img = Image.open("template.png").convert("RGBA")
+        txt_layer = Image.new('RGBA', img.size, (255, 255, 255, 0))
+        draw = ImageDraw.Draw(txt_layer)
         
-        # Load fonts - Ensure these .ttf files are in your GitHub repo!
+        # Load fonts
         try:
-            font_h = ImageFont.truetype("Montserrat-Bold.ttf", 80)
-            font_s = ImageFont.truetype("Montserrat-Medium.ttf", 45)
+            font_h = ImageFont.truetype("Montserrat-Bold.ttf", 90)
+            font_s = ImageFont.truetype("Montserrat-Medium.ttf", 55)
         except:
             font_h = ImageFont.load_default()
             font_s = ImageFont.load_default()
             
-        # Visible Text Color (Dark Pink/Berry) for light backgrounds
-        text_color = "#D81B60" 
+        # High Contrast Colors
+        headline_color = "#212121"
+        summary_color = "#424242"
         
-        # Headline and Summary Positioning
-        draw.text((60, 450), headline.upper(), font=font_h, fill=text_color)
-        draw.text((60, 560), summary, font=font_s, fill="#444444")
+        # Wrapping
+        headline_wrapped = textwrap.fill(headline.upper(), width=18)
+        summary_wrapped = textwrap.fill(summary, width=35)
+
+        # Draw Text
+        draw.multiline_text((60, 420), headline_wrapped, font=font_h, fill=headline_color)
+        draw.multiline_text((60, 580), summary_wrapped, font=font_s, fill=summary_color)
         
-        img.save("final_post.jpg", "JPEG", quality=95)
-        print("Success: final_post.jpg created with visible text.")
-        return f"{headline}\n\n{summary}\n\n#Jaipur #MastJaipur #JaipurNews"
+        final_img = Image.alpha_composite(img, txt_layer).convert("RGB")
+        final_img.save("final_post.jpg", "JPEG", quality=95)
+        print("Image created successfully.")
+        return True
     except Exception as e:
         print(f"Design Error: {e}")
-        return None
+        return False
 
 def publish_to_instagram(caption):
-    if not caption: return
+    """Sends the media and caption to Instagram API."""
+    if not caption:
+        return
     
     post_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media"
-    payload = {'image_url': IMAGE_URL, 'caption': caption, 'access_token': IG_TOKEN}
+    payload = {
+        'image_url': IMAGE_URL,
+        'caption': caption,
+        'access_token': IG_TOKEN
+    }
     
     r = requests.post(post_url, data=payload).json()
-    
     if 'id' in r:
         creation_id = r['id']
         publish_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media_publish"
         requests.post(publish_url, data={'creation_id': creation_id, 'access_token': IG_TOKEN})
-        print("Successfully posted to Instagram!")
+        print("Instagram post successful!")
     else:
-        print(f"Instagram rejected the image URL. Error: {r}")
+        print(f"Instagram Error: {r}")
 
 if __name__ == "__main__":
-    caption_text = get_news_and_design()
-    publish_to_instagram(caption_text)
+    full_content = get_ai_content()
+    if full_content:
+        # Assuming AI separates Part 1 and Part 2 clearly
+        parts = full_content.split("PART 2")
+        image_text = parts[0].replace("PART 1", "").strip()
+        social_caption = parts[1].strip() if len(parts) > 1 else image_text
+        
+        if create_image(image_text):
+            publish_to_instagram(social_caption)
