@@ -30,19 +30,22 @@ jobs:
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
         run: python main.py
 
-      - name: Force Push Image to gh-pages
+      - name: Force Push to GitHub Pages
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Switch to a temporary branch to prepare the update
+          # Create a temp branch
           git checkout -B temp-gh-pages
           
-          # Add ONLY the files needed for the website
-          git add -f final_post.jpg index.html .nojekyll
-          
-          # Commit the changes
-          git commit -m "Automated update: Added final_post.jpg"
-          
-          # Force push the local temp branch to the remote gh-pages branch
-          git push origin temp-gh-pages:gh-pages --force
+          # Check if image was actually created
+          if [ -f "final_post.jpg" ]; then
+            # Force add files even if in gitignore
+            git add -f final_post.jpg index.html .nojekyll
+            git commit -m "Update Daily News Image"
+            git push origin temp-gh-pages:gh-pages --force
+            echo "Deployment successful."
+          else
+            echo "final_post.jpg not found. AI quota likely exceeded."
+            exit 1
+          fi

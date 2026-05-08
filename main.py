@@ -3,21 +3,18 @@ import requests
 from PIL import Image, ImageDraw, ImageFont
 from google import genai
 
-# 1. Load Environment Variables from GitHub Secrets
+# 1. Configuration
 GEMINI_KEY = os.getenv("GEMINI_KEY")
 IG_USER_ID = os.getenv("IG_USER_ID")
 IG_TOKEN = os.getenv("IG_TOKEN")
 
-# Update your GitHub details here
 GITHUB_USERNAME = "techarihant"
 REPO_NAME = "Mastjaipur"
 IMAGE_URL = f"https://{GITHUB_USERNAME}.github.io/{REPO_NAME}/final_post.jpg"
 
-# Initialize the Google GenAI Client
 client = genai.Client(api_key=GEMINI_KEY)
 
 def get_news_and_design():
-    # news_url can be updated to any Jaipur news source
     news_url = "https://timesofindia.indiatimes.com/city/jaipur" 
     
     prompt = (
@@ -28,12 +25,15 @@ def get_news_and_design():
     )
 
     try:
-        # Using gemini-2.0-flash to avoid 404 versioning errors
+        # Using 1.5-flash as it is more stable for Free Tier quotas
         response = client.models.generate_content(
-            model="gemini-2.0-flash", 
+            model="gemini-1.5-flash", 
             contents=prompt
         )
         
+        if not response.text:
+            raise ValueError("Empty response from AI")
+
         text_output = response.text.strip().split('\n')
         headline = text_output[0]
         summary = text_output[1] if len(text_output) > 1 else ""
@@ -41,21 +41,20 @@ def get_news_and_design():
         print(f"AI Generation Error: {e}")
         return None
 
-    # Design Image
     try:
+        # Ensure template.png exists in your repo
         img = Image.open("template.png")
         draw = ImageDraw.Draw(img)
         
-        # Ensure these .ttf files are in your repository root
+        # Ensure these fonts are committed to your repo
         font_h = ImageFont.truetype("Montserrat-Bold.ttf", 70)
         font_s = ImageFont.truetype("Montserrat-Medium.ttf", 40)
         
-        # Draw text onto the template
         draw.text((60, 400), headline.upper(), font=font_h, fill="white")
         draw.text((60, 520), summary, font=font_s, fill="white")
         
         img.save("final_post.jpg", "JPEG", quality=95)
-        print("Image saved successfully.")
+        print("Image saved successfully: final_post.jpg")
         return f"{headline}\n\n{summary}\n\n#Jaipur #MastJaipur #PinkCity"
     except Exception as e:
         print(f"Drawing Error: {e}")
@@ -63,20 +62,21 @@ def get_news_and_design():
 
 def publish_to_instagram(caption):
     if not caption:
+        print("Skipping Instagram post due to previous errors.")
         return
 
-    # Create the media container on Instagram
     post_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media"
     payload = {
         'image_url': IMAGE_URL,
         'caption': caption,
         'access_token': IG_TOKEN
     }
+    
+    print(f"Attempting to post image from: {IMAGE_URL}")
     r = requests.post(post_url, data=payload).json()
     
     if 'id' in r:
         creation_id = r['id']
-        # Publish the container to the live feed
         publish_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media_publish"
         requests.post(publish_url, data={'creation_id': creation_id, 'access_token': IG_TOKEN})
         print("Successfully posted to Instagram!")
