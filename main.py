@@ -14,7 +14,7 @@ client = genai.Client(api_key=GEMINI_KEY)
 
 def get_ai_content():
     """Fetches text with a fallback to ensure the script never fails."""
-    # FIXED: The SDK expects the model name exactly like this
+    # SDK FIX: Use the direct model name string
     model_id = "gemini-1.5-flash"
     
     prompt = (
@@ -29,7 +29,6 @@ def get_ai_content():
     )
 
     try:
-        # Fixed model call for the genai SDK
         response = client.models.generate_content(model=model_id, contents=prompt)
         if response and response.text:
             return response.text.strip()
@@ -43,7 +42,7 @@ def create_image(image_text_block):
     try:
         lines = [l.strip() for l in image_text_block.split('\n') if l.strip()]
         
-        # Robust parsing
+        # Parsing logic to find the news content regardless of AI labels
         headline_raw = "JAIPUR CITY UPDATES"
         summary_raw = "Pink City news and updates."
         
@@ -65,6 +64,7 @@ def create_image(image_text_block):
             font_h = ImageFont.load_default()
             font_s = ImageFont.load_default()
             
+        # Draw high-contrast text on your pink/white template
         draw.text((60, 450), headline.upper(), font=font_h, fill="#212121")
         draw.text((60, 560), textwrap.fill(summary, width=35), font=font_s, fill="#424242")
         
@@ -76,7 +76,7 @@ def create_image(image_text_block):
         return False
 
 def publish_to_instagram(caption):
-    """Handles the Instagram Graph API process."""
+    """Handles the two-step Instagram Graph API process."""
     if not caption: return
     
     try:
@@ -87,7 +87,7 @@ def publish_to_instagram(caption):
         
         if 'id' in r:
             creation_id = r['id']
-            # Step 2: Publish
+            # Step 2: Publish Media
             publish_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media_publish"
             requests.post(publish_url, data={'creation_id': creation_id, 'access_token': IG_TOKEN})
             print("Successfully posted to Instagram!")
@@ -99,6 +99,7 @@ def publish_to_instagram(caption):
 if __name__ == "__main__":
     full_content = get_ai_content()
     
+    # Split content for Image vs Caption
     if "PART 2" in full_content:
         parts = full_content.split("PART 2")
         img_text = parts[0]
