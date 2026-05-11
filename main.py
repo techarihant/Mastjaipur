@@ -4,24 +4,22 @@ import textwrap
 from PIL import Image, ImageDraw, ImageFont
 from google import genai
 
-# Configuration
+# 1. Configuration
 GEMINI_KEY = os.getenv("GEMINI_KEY")
 IG_USER_ID = os.getenv("IG_USER_ID")
 IG_TOKEN = os.getenv("IG_TOKEN")
-# Ensure this matches your GitHub username/repo exactly
+# Ensure this URL matches your GitHub username/repo exactly
 IMAGE_URL = "https://techarihant.github.io/Mastjaipur/final_post.jpg"
 
-# Initialize Client
 client = genai.Client(api_key=GEMINI_KEY)
 
 def get_ai_content():
-    """Fetches text with a fallback. SDK Fix: Use direct string 'gemini-1.5-flash'."""
-    model_id = "gemini-1.5-flash"
+    """Fetches text with fallback. SDK Fix: Use simple string name."""
+    model_id = "gemini-1.5-flash" 
     
     prompt = (
-        "PART 1 (For Image): Line 1: 4-word headline about Jaipur news. Line 2: 1-line Hinglish summary.\n"
-        "PART 2 (For Meta Caption): Write an SEO optimized caption with 8-12 hashtags "
-        "and a final bracketed keyword list."
+        "PART 1 (For Image): Line 1: 4-word headline. Line 2: 1-line Hinglish summary. "
+        "PART 2 (For Meta Caption): Write an SEO optimized caption with 8-12 hashtags."
     )
     
     default_content = (
@@ -31,32 +29,28 @@ def get_ai_content():
     )
 
     try:
-        # SDK FIX: Directly passing the string model_id
+        # SDK handles the versioning; just pass the model name
         response = client.models.generate_content(model=model_id, contents=prompt)
         if response and response.text:
             return response.text.strip()
         return default_content
     except Exception as e:
-        print(f"AI Error: {e}. Using fallback news.")
+        print(f"AI Error: {e}. Using fallback.")
         return default_content
 
 def create_image(image_text_block):
     """Creates final_post.jpg with LARGE, BOLD, HIGH-CONTRAST text."""
     try:
         lines = [l.strip() for l in image_text_block.split('\n') if l.strip()]
-        
-        # Robust parsing to find actual content
         content_lines = [line for line in lines if "PART" not in line.upper()]
-        headline_raw = content_lines[0] if len(content_lines) > 0 else "JAIPUR CITY UPDATES"
-        summary_raw = content_lines[1] if len(content_lines) > 1 else "Pink City news and updates."
-
-        headline = "".join(e for e in headline_raw if e.isalnum() or e.isspace()).strip()[:30]
-        summary = "".join(e for e in summary_raw if e.isalnum() or e.isspace() or e in '.,!?').strip()[:100]
+        
+        headline = content_lines[0] if len(content_lines) > 0 else "JAIPUR UPDATES"
+        summary = content_lines[1] if len(content_lines) > 1 else "Latest city news."
 
         img = Image.open("template.png").convert("RGB")
         draw = ImageDraw.Draw(img)
         
-        # LARGE FONT SIZES
+        # INCREASED FONT SIZES
         try:
             font_h = ImageFont.truetype("Montserrat-Bold.ttf", 95)
             font_s = ImageFont.truetype("Montserrat-Medium.ttf", 55)
@@ -64,13 +58,9 @@ def create_image(image_text_block):
             font_h = ImageFont.load_default()
             font_s = ImageFont.load_default()
             
-        # HIGH CONTRAST COLOR: Deep Berry/Dark Charcoal
-        text_color = "#D81B60" 
-        
-        # Headline - Large and centered in white space
-        draw.text((60, 420), headline.upper(), font=font_h, fill=text_color)
-        # Summary - Wrapped to 32 chars for readability
-        draw.text((60, 580), textwrap.fill(summary, width=32), font=font_s, fill="#424242")
+        # High-contrast charcoal text for visibility on pink
+        draw.text((60, 420), headline.upper()[:30], font=font_h, fill="#212121")
+        draw.text((60, 580), textwrap.fill(summary[:100], width=32), font=font_s, fill="#424242")
         
         img.save("final_post.jpg", "JPEG", quality=95)
         print(f"Verified: Image created with headline: {headline}")
@@ -80,36 +70,24 @@ def create_image(image_text_block):
         return False
 
 def publish_to_instagram(caption):
-    """Two-step Instagram publishing process."""
     if not caption: return
+    post_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media"
+    payload = {'image_url': IMAGE_URL, 'caption': caption, 'access_token': IG_TOKEN}
+    r = requests.post(post_url, data=payload).json()
     
-    try:
-        # Step 1: Create Container
-        post_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media"
-        payload = {'image_url': IMAGE_URL, 'caption': caption, 'access_token': IG_TOKEN}
-        r = requests.post(post_url, data=payload).json()
-        
-        if 'id' in r:
-            creation_id = r['id']
-            # Step 2: Publish
-            publish_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media_publish"
-            requests.post(publish_url, data={'creation_id': creation_id, 'access_token': IG_TOKEN})
-            print("Successfully posted to Instagram!")
-        else:
-            print(f"Instagram rejected the link. Error: {r}")
-    except Exception as e:
-        print(f"Network Error: {e}")
+    if 'id' in r:
+        creation_id = r['id']
+        publish_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media_publish"
+        requests.post(publish_url, data={'creation_id': creation_id, 'access_token': IG_TOKEN})
+        print("Successfully posted to Instagram!")
+    else:
+        print(f"Instagram rejected the link. Error: {r}")
 
 if __name__ == "__main__":
     full_content = get_ai_content()
+    parts = full_content.split("PART 2")
+    img_text = parts[0]
+    social_cap = parts[1].strip() if len(parts) > 1 else img_text
     
-    if "PART 2" in full_content:
-        parts = full_content.split("PART 2")
-        img_text = parts[0]
-        social_cap = parts[1].strip()
-    else:
-        img_text = full_content
-        social_cap = full_content
-
     if create_image(img_text):
         publish_to_instagram(social_cap)
