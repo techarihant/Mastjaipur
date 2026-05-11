@@ -8,13 +8,13 @@ from google import genai
 GEMINI_KEY = os.getenv("GEMINI_KEY")
 IG_USER_ID = os.getenv("IG_USER_ID")
 IG_TOKEN = os.getenv("IG_TOKEN")
-# Ensure this matches your repo name exactly
+# Ensure this matches your repo URL exactly
 IMAGE_URL = "https://techarihant.github.io/Mastjaipur/final_post.jpg"
 
 client = genai.Client(api_key=GEMINI_KEY)
 
 def get_ai_content():
-    """SDK FIX: Use the simple string 'gemini-1.5-flash' directly."""
+    """SDK FIX: Use 'gemini-1.5-flash' directly without prefixes."""
     model_id = "gemini-1.5-flash" 
     
     prompt = (
@@ -30,7 +30,7 @@ def get_ai_content():
     )
 
     try:
-        # SDK handles the versioning; just pass the model name string
+        # SDK handles the model prefix automatically; just pass the string
         response = client.models.generate_content(model=model_id, contents=prompt)
         if response and response.text:
             return response.text.strip()
@@ -51,7 +51,7 @@ def create_image(image_text_block):
         img = Image.open("template.png").convert("RGB")
         draw = ImageDraw.Draw(img)
         
-        # INCREASED FONT SIZES FOR VISIBILITY
+        # INCREASED FONT SIZES FOR BETTER VISIBILITY
         try:
             font_h = ImageFont.truetype("Montserrat-Bold.ttf", 95)
             font_s = ImageFont.truetype("Montserrat-Medium.ttf", 55)

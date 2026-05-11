@@ -48,6 +48,6 @@ jobs:
       - name: Post to Instagram
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
-          IG_USER_ID: ${{ secrets.IG_USER_ID }} # FIXED: Extra 'ID' removed
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
         run: python main.py
