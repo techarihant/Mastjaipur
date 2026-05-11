@@ -4,21 +4,23 @@ import textwrap
 from PIL import Image, ImageDraw, ImageFont
 from google import genai
 
-# Configuration
+# 1. Configuration
 GEMINI_KEY = os.getenv("GEMINI_KEY")
 IG_USER_ID = os.getenv("IG_USER_ID")
 IG_TOKEN = os.getenv("IG_TOKEN")
+# Ensure this matches your repo name exactly
 IMAGE_URL = "https://techarihant.github.io/Mastjaipur/final_post.jpg"
 
 client = genai.Client(api_key=GEMINI_KEY)
 
 def get_ai_content():
-    """SDK FIX: Use the simple string 'gemini-1.5-flash'"""
+    """SDK FIX: Use the simple string 'gemini-1.5-flash' directly."""
     model_id = "gemini-1.5-flash" 
     
     prompt = (
-        "PART 1 (For Image): Line 1: 4-word headline. Line 2: 1-line Hinglish summary. "
-        "PART 2 (For Meta Caption): Write an SEO optimized caption with 8-12 hashtags."
+        "PART 1 (For Image): Line 1: 4-word headline about Jaipur news. Line 2: 1-line Hinglish summary.\n"
+        "PART 2 (For Meta Caption): Write an SEO optimized caption with 8-12 hashtags "
+        "and a final bracketed keyword list."
     )
     
     default_content = (
@@ -28,7 +30,7 @@ def get_ai_content():
     )
 
     try:
-        # The SDK adds 'models/' automatically; don't add it yourself
+        # SDK handles the versioning; just pass the model name string
         response = client.models.generate_content(model=model_id, contents=prompt)
         if response and response.text:
             return response.text.strip()
@@ -46,11 +48,10 @@ def create_image(image_text_block):
         headline = content_lines[0] if len(content_lines) > 0 else "JAIPUR UPDATES"
         summary = content_lines[1] if len(content_lines) > 1 else "Latest city news."
 
-        # Load your template.png
         img = Image.open("template.png").convert("RGB")
         draw = ImageDraw.Draw(img)
         
-        # LARGE FONT SIZES FOR VISIBILITY
+        # INCREASED FONT SIZES FOR VISIBILITY
         try:
             font_h = ImageFont.truetype("Montserrat-Bold.ttf", 95)
             font_s = ImageFont.truetype("Montserrat-Medium.ttf", 55)
@@ -63,17 +64,14 @@ def create_image(image_text_block):
         draw.text((60, 580), textwrap.fill(summary[:100], width=32), font=font_s, fill="#424242")
         
         img.save("final_post.jpg", "JPEG", quality=95)
-        
-        # Verify the file exists
-        if os.path.exists("final_post.jpg"):
-            print("Successfully saved final_post.jpg")
-            return True
-        return False
+        print(f"Verified: Image created with headline: {headline}")
+        return True
     except Exception as e:
         print(f"Design Error: {e}")
         return False
 
 def publish_to_instagram(caption):
+    """Handles the Instagram Graph API process."""
     if not caption: return
     post_url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/media"
     payload = {'image_url': IMAGE_URL, 'caption': caption, 'access_token': IG_TOKEN}
@@ -85,7 +83,7 @@ def publish_to_instagram(caption):
         requests.post(publish_url, data={'creation_id': creation_id, 'access_token': IG_TOKEN})
         print("Successfully posted to Instagram!")
     else:
-        print(f"Instagram Error: {r}")
+        print(f"Instagram rejected the link. Error: {r}")
 
 if __name__ == "__main__":
     full_content = get_ai_content()
@@ -94,5 +92,4 @@ if __name__ == "__main__":
     social_cap = parts[1].strip() if len(parts) > 1 else img_text
     
     if create_image(img_text):
-        # We only try to post if the image was actually created
         publish_to_instagram(social_cap)
