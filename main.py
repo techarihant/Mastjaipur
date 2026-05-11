@@ -8,13 +8,12 @@ from google import genai
 GEMINI_KEY = os.getenv("GEMINI_KEY")
 IG_USER_ID = os.getenv("IG_USER_ID")
 IG_TOKEN = os.getenv("IG_TOKEN")
-# Ensure this URL matches your GitHub username/repo exactly
 IMAGE_URL = "https://techarihant.github.io/Mastjaipur/final_post.jpg"
 
 client = genai.Client(api_key=GEMINI_KEY)
 
 def get_ai_content():
-    """Fetches text with fallback. SDK Fix: Use simple string name."""
+    """SDK FIX: Use 'gemini-1.5-flash' (No 'models/' prefix)"""
     model_id = "gemini-1.5-flash" 
     
     prompt = (
@@ -29,17 +28,17 @@ def get_ai_content():
     )
 
     try:
-        # SDK handles the versioning; just pass the model name
+        # This call is fixed to match the google-genai SDK 
         response = client.models.generate_content(model=model_id, contents=prompt)
         if response and response.text:
             return response.text.strip()
         return default_content
     except Exception as e:
-        print(f"AI Error: {e}. Using fallback.")
+        print(f"AI Error: {e}. Using fallback news.")
         return default_content
 
 def create_image(image_text_block):
-    """Creates final_post.jpg with LARGE, BOLD, HIGH-CONTRAST text."""
+    """Creates final_post.jpg with LARGE, BOLD text."""
     try:
         lines = [l.strip() for l in image_text_block.split('\n') if l.strip()]
         content_lines = [line for line in lines if "PART" not in line.upper()]
@@ -50,7 +49,7 @@ def create_image(image_text_block):
         img = Image.open("template.png").convert("RGB")
         draw = ImageDraw.Draw(img)
         
-        # INCREASED FONT SIZES
+        # INCREASED FONT SIZES FOR VISIBILITY
         try:
             font_h = ImageFont.truetype("Montserrat-Bold.ttf", 95)
             font_s = ImageFont.truetype("Montserrat-Medium.ttf", 55)
@@ -58,12 +57,11 @@ def create_image(image_text_block):
             font_h = ImageFont.load_default()
             font_s = ImageFont.load_default()
             
-        # High-contrast charcoal text for visibility on pink
+        # Draw high-contrast charcoal text (#212121)
         draw.text((60, 420), headline.upper()[:30], font=font_h, fill="#212121")
         draw.text((60, 580), textwrap.fill(summary[:100], width=32), font=font_s, fill="#424242")
         
         img.save("final_post.jpg", "JPEG", quality=95)
-        print(f"Verified: Image created with headline: {headline}")
         return True
     except Exception as e:
         print(f"Design Error: {e}")
@@ -81,7 +79,7 @@ def publish_to_instagram(caption):
         requests.post(publish_url, data={'creation_id': creation_id, 'access_token': IG_TOKEN})
         print("Successfully posted to Instagram!")
     else:
-        print(f"Instagram rejected the link. Error: {r}")
+        print(f"Instagram Error: {r}")
 
 if __name__ == "__main__":
     full_content = get_ai_content()
